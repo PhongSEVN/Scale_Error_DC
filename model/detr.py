@@ -192,7 +192,7 @@ class DETR(nn.Module):
 
 def build_detr(num_classes: int, num_queries: int = 100,
                hidden_dim: int = 256, pretrained_backbone: bool = True,
-               **kwargs) -> DETR:
+               backbone_name: str = "resnet50", **kwargs) -> DETR:
     """
     Factory function to build a DETR model.
 
