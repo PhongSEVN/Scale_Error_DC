@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from configs.train_config import *
 from model.detr import build_detr
 from model.criterion import box_cxcywh_to_xyxy
-from dataset.dataset import DETRDataset, detr_collate_fn
+from dataset.coco_dataset import COCODETRDataset, coco_detr_collate_fn
 
 
 # =============================================================================
@@ -301,7 +301,7 @@ def main():
     # ---- Load model ----
     if not os.path.exists(args.checkpoint):
         print(f"Error: Checkpoint not found at {args.checkpoint}")
-        print("Train the model first: python train.py")
+        print("Train the model first: python train_detr_custom.py")
         sys.exit(1)
 
     print(f"Loading checkpoint: {args.checkpoint}")
@@ -323,16 +323,24 @@ def main():
           f"loss {checkpoint.get('loss', 0):.4f})")
 
     # ---- Load dataset ----
-    split_dirs = {'val': VAL_DIR, 'test': TEST_DIR, 'train': TRAIN_DIR}
-    data_dir = split_dirs[args.split]
-
-    if not os.path.exists(os.path.join(data_dir, 'images')):
-        print(f"Error: No images found at {data_dir}/images")
+    # Mapping current directory structure
+    if args.split == 'val':
+        root = "data/valid"
+        ann = "data/valid/_annotations.coco.json"
+    elif args.split == 'train':
+        root = "data/train"
+        ann = "data/train/_annotations.coco.json"
+    else:
+        print(f"Error: Split {args.split} not configured with COCO annotations.")
         sys.exit(1)
 
-    dataset = DETRDataset(
-        root=data_dir,
-        img_size=args.img_size,
+    if not os.path.exists(root):
+        print(f"Error: Directory not found at {root}")
+        sys.exit(1)
+
+    dataset = COCODETRDataset(
+        root=root,
+        ann_file=ann,
         class_names=class_names,
         augment=False,
     )
@@ -342,7 +350,7 @@ def main():
         batch_size=1,
         shuffle=False,
         num_workers=2,
-        collate_fn=detr_collate_fn,
+        collate_fn=coco_detr_collate_fn,
         pin_memory=True,
     )
 
