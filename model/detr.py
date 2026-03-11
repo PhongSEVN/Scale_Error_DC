@@ -1,23 +1,12 @@
 """
 DETR: DEtection TRansformer — Main Model
-==========================================
-Ref: "End-to-End Object Detection with Transformers" (Carion et al., 2020)
-
-The DETR model chains:
-    1. CNN Backbone (ResNet-50) → feature map (B, d, H/32, W/32)
-    2. Positional Encoding → fixed sine/cosine 2D encoding
-    3. Transformer Encoder-Decoder → N output embeddings
-    4. Prediction FFNs → class logits + bounding box coordinates
-
-The inference code below mirrors the "less than 50 lines" concept from the paper,
-expanded for full training support with masks and variable-size batching.
 """
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from model.backbone import BackboneResNet50
+from model.backbone import BackboneResNet
 from model.position_encoding import PositionalEncodingSine
 from model.transformer import DETRTransformer
 
@@ -65,7 +54,7 @@ class DETR(nn.Module):
                  nhead: int = 8, num_encoder_layers: int = 6,
                  num_decoder_layers: int = 6, dim_feedforward: int = 2048,
                  dropout: float = 0.1, num_queries: int = 100,
-                 pretrained_backbone: bool = True):
+                 pretrained_backbone: bool = True, backbone_name: str = "resnet50"):
         """
         Args:
             num_classes: Number of object classes (NOT including the no-object class).
@@ -87,7 +76,8 @@ class DETR(nn.Module):
         self.hidden_dim = hidden_dim
 
         # ==================== BACKBONE ====================
-        self.backbone = BackboneResNet50(
+        self.backbone = BackboneResNet(
+            name=backbone_name,
             hidden_dim=hidden_dim,
             pretrained=pretrained_backbone
         )
@@ -221,6 +211,7 @@ def build_detr(num_classes: int, num_queries: int = 100,
         hidden_dim=hidden_dim,
         num_queries=num_queries,
         pretrained_backbone=pretrained_backbone,
+        backbone_name=backbone_name,
         **kwargs
     )
     return model

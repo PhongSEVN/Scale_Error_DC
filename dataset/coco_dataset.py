@@ -28,7 +28,8 @@ class COCODETRDataset(Dataset):
 
     def __init__(self, root: str, ann_file: str, 
                  class_names: List[str],
-                 augment: bool = True):
+                 augment: bool = True,
+                 img_size: int = 800):
         """
         Args:
             root: Directory containing images.
@@ -40,14 +41,13 @@ class COCODETRDataset(Dataset):
         self.root = root
         self.augment = augment
         self.class_names = class_names
+        self.img_size = img_size
         
         # Load COCO JSON
         with open(ann_file, 'r') as f:
             coco_data = json.load(f)
             
-        # Create mapping from category ID to index [0, 1, 2, 3, 4]
-        # The user specified 5 classes: "DiVat", "DiVatLoiLom", "LoiChi", "LoiNhua", "LoiTray"
-        # We assume they are in order in the JSON or mapped correctly.
+        # Create mapping from category ID to index
         self.cat_id_to_idx = {cat['id']: i for i, cat in enumerate(coco_data['categories'])}
         
         # Build image information lookup
@@ -92,7 +92,7 @@ class COCODETRDataset(Dataset):
             if cat_id not in self.cat_id_to_idx:
                 continue
             
-            # Label index [0..4]
+            # Label index
             labels.append(self.cat_id_to_idx[cat_id])
             
             # COCO box: [x, y, w, h] (top-left)
@@ -117,22 +117,24 @@ class COCODETRDataset(Dataset):
                     boxes[:, 0] = 1.0 - boxes[:, 0]  # Flip cx
 
             # Random Resize
-            shortest_side = torch.randint(480, 801, (1,)).item()
+            shortest_side = torch.randint(int(self.img_size * 0.6), self.img_size + 1, (1,)).item()
             scale = shortest_side / min(orig_w, orig_h)
             
-            # Ensure longest side <= 1333
-            if max(orig_w, orig_h) * scale > 1333:
-                scale = 1333 / max(orig_w, orig_h)
+            # Ensure longest side proportional to img_size
+            max_longest = int(1333 * (self.img_size / 800))
+            if max(orig_w, orig_h) * scale > max_longest:
+                scale = max_longest / max(orig_w, orig_h)
                 
             new_w = int(orig_w * scale)
             new_h = int(orig_h * scale)
             img = TF.resize(img, [new_h, new_w])
         else:
             # Fixed Resize for validation
-            shortest_side = 800
+            shortest_side = self.img_size
             scale = shortest_side / min(orig_w, orig_h)
-            if max(orig_w, orig_h) * scale > 1333:
-                scale = 1333 / max(orig_w, orig_h)
+            max_longest = int(1333 * (self.img_size / 800))
+            if max(orig_w, orig_h) * scale > max_longest:
+                scale = max_longest / max(orig_w, orig_h)
             new_w = int(orig_w * scale)
             new_h = int(orig_h * scale)
             img = TF.resize(img, [new_h, new_w])

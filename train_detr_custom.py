@@ -44,16 +44,19 @@ TRAIN_ROOT = "data/train"
 TRAIN_ANN = "data/train/_annotations.coco.json"
 VAL_ROOT = "data/valid"
 VAL_ANN = "data/valid/_annotations.coco.json"
-CLASS_NAMES = ["DiVat", "DiVatLoiLom", "LoiChi", "LoiNhua", "LoiTray"]
-NUM_CLASSES = len(CLASS_NAMES)  # 5
+CLASS_NAMES = ["LoiChi-6OcR", "DiVat", "DiVatLoiLom", "LoiChi", "LoiNhua", "LoiTray"]
+NUM_CLASSES = len(CLASS_NAMES)
 
 # Model architecture
-HIDDEN_DIM = 256
+BACKBONE_NAME = "resnet18"
+HIDDEN_DIM = 64
 NHEAD = 8
-NUM_ENCODER_LAYERS = 6
-NUM_DECODER_LAYERS = 6
-NUM_QUERIES = 100
+NUM_ENCODER_LAYERS = 2
+NUM_DECODER_LAYERS = 2
+NUM_QUERIES = 50
 DROPOUT = 0.1
+DIM_FEEDFORWARD = 256
+IMAGE_SIZE = 640
 
 # Training setup
 BATCH_SIZE = 1  # Standard for DETR single-GPU or small memory
@@ -91,14 +94,16 @@ def main():
         root=TRAIN_ROOT,
         ann_file=TRAIN_ANN,
         class_names=CLASS_NAMES,
-        augment=True
+        augment=True,
+        img_size=IMAGE_SIZE
     )
     
     val_dataset = COCODETRDataset(
         root=VAL_ROOT,
         ann_file=VAL_ANN,
         class_names=CLASS_NAMES,
-        augment=False
+        augment=False,
+        img_size=IMAGE_SIZE
     )
     
     train_loader = DataLoader(
@@ -128,7 +133,8 @@ def main():
         nhead=NHEAD,
         num_encoder_layers=NUM_ENCODER_LAYERS,
         num_decoder_layers=NUM_DECODER_LAYERS,
-        dropout=DROPOUT
+        dropout=DROPOUT,
+        backbone_name=BACKBONE_NAME
     )
     model.to(device)
     
@@ -250,6 +256,6 @@ if __name__ == "__main__":
         print(f"Training failed: {e}")
         print("\nPossible issues:")
         print("1. Dataset paths in hyperparameters section are incorrect.")
-        print("2. Ground truth category IDs in JSON do not match the index [0..4].")
-        print("3. CUDA out of memory (Try reducing BATCH_SIZE or IMAGE_SIZE).")
+        print("2. Ground truth category IDs in JSON do not match the index.")
+        print("3. CUDA out of memory.")
 
