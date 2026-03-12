@@ -27,20 +27,20 @@ NHEAD = 4
 NUM_ENCODER_LAYERS = 2
 NUM_DECODER_LAYERS = 2
 DIM_FEEDFORWARD = 128
-NUM_QUERIES = 25
+NUM_QUERIES = 100
 DROPOUT = 0.1
 
 # Augmentation Probabilities
 MIXUP_PROB = 0.1
 CUTMIX_PROB = 0.1
 FMIX_PROB = 0.1
-COPY_PASTE_PROB = 0.2
+COPY_PASTE_PROB = 0.3
 
 # =============================================================================
 # Training Configuration
 # =============================================================================
-IMAGE_SIZE = 640
-BATCH_SIZE = 8
+IMAGE_SIZE = 800
+BATCH_SIZE = 2
 NUM_WORKERS = 2
 EPOCHS = 100
 
@@ -59,7 +59,7 @@ CLIP_MAX_NORM = 0.1
 # =============================================================================
 # Loss & Matching Configuration
 # =============================================================================
-WEIGHT_CE = 1.0
+WEIGHT_CE = 2.0
 WEIGHT_BBOX = 5.0
 WEIGHT_GIOU = 2.0
 EOS_COEF = 0.1
