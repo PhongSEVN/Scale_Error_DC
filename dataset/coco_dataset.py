@@ -19,6 +19,9 @@ import torchvision.transforms.functional as TF
 from torch.utils.data import Dataset
 from PIL import Image
 from typing import Tuple, List, Optional
+import random
+import configs.train_config as cfg
+from dataset.augmentations import mixup_detection, cutmix_detection, fmix_detection, copy_paste_minority
 
 
 class COCODETRDataset(Dataset):
@@ -69,6 +72,19 @@ class COCODETRDataset(Dataset):
         self.mean = [0.485, 0.456, 0.406]
         self.std = [0.229, 0.224, 0.225]
 
+        # Index minority classes for balanced augmentation sampling
+        self.minority_indices = []
+        if self.augment:
+            for i, img_id in enumerate(self.img_ids):
+                anns = self.img_to_anns.get(img_id, [])
+                for ann in anns:
+                    cat_id = ann['category_id']
+                    if cat_id in self.cat_id_to_idx:
+                        if self.cat_id_to_idx[cat_id] in [4, 5]: # Rare classes
+                            self.minority_indices.append(i)
+                            break
+            print(f"  --> Minority class images indexed: {len(self.minority_indices)}")
+
     def __len__(self) -> int:
         return len(self.img_ids)
 
@@ -107,7 +123,36 @@ class COCODETRDataset(Dataset):
         labels = torch.tensor(labels, dtype=torch.long)
         boxes = torch.tensor(boxes, dtype=torch.float32)
 
-        # ---- Data Augmentation: Random Resize & Flip ----
+        target = {
+            'labels': labels,
+            'boxes': boxes,
+        }
+
+        # ---- Data Augmentation: Advanced (MixUp, CutMix, FMix) ----
+        if self.augment:
+            r = random.random()
+            if r < cfg.MIXUP_PROB:
+                other_img, other_target = self._get_second_sample(idx)
+                img, target = mixup_detection(img, target, other_img, other_target)
+            elif r < cfg.MIXUP_PROB + cfg.CUTMIX_PROB:
+                other_img, other_target = self._get_second_sample(idx)
+                img, target = cutmix_detection(img, target, other_img, other_target)
+            elif r < cfg.MIXUP_PROB + cfg.CUTMIX_PROB + cfg.FMIX_PROB:
+                other_img, other_target = self._get_second_sample(idx)
+                img, target = fmix_detection(img, target, other_img, other_target)
+            elif r < cfg.MIXUP_PROB + cfg.CUTMIX_PROB + cfg.FMIX_PROB + cfg.COPY_PASTE_PROB:
+                # Always sample from minority pool for Copy-Paste
+                other_img, other_target = self._get_second_sample(idx, force_minority=True)
+                img, target = copy_paste_minority(img, target, other_img, other_target)
+
+        # Re-extract labels/boxes after mixing
+        labels = target['labels']
+        boxes = target['boxes']
+
+        # Update orig_w, orig_h if img was resized during mixing
+        orig_w, orig_h = img.size
+
+        # ---- Data Augmentation: Basic (Random Resize & Flip) ----
         # Ref: Section 4. Shortest side in [480, 800], longest <= 1333
         if self.augment:
             # Random Horizontal Flip
@@ -152,6 +197,36 @@ class COCODETRDataset(Dataset):
         }
 
         return img, target
+
+    def _get_second_sample(self, current_idx: int, force_minority: bool = False) -> Tuple[Image.Image, dict]:
+        """Load a random second sample. Performs balanced sampling if needed."""
+        # Weighted sampling: 50% chance to pick from minority pool if it exists
+        if (force_minority or random.random() < 0.5) and len(self.minority_indices) > 0:
+            idx = random.choice(self.minority_indices)
+        else:
+            idx = random.randint(0, len(self) - 1)
+            
+        if idx == current_idx and len(self) > 1:
+            idx = (idx + 1) % len(self)
+        
+        img_id = self.img_ids[idx]
+        img_info = self.images[img_id]
+        img = Image.open(os.path.join(self.root, img_info['file_name'])).convert('RGB')
+        orig_w, orig_h = img.size
+        
+        anns = self.img_to_anns.get(img_id, [])
+        labels, boxes = [], []
+        for ann in anns:
+            cat_id = ann['category_id']
+            if cat_id in self.cat_id_to_idx:
+                labels.append(self.cat_id_to_idx[cat_id])
+                x, y, w, h = ann['bbox']
+                boxes.append([(x + w / 2) / orig_w, (y + h / 2) / orig_h, w / orig_w, h / orig_h])
+        
+        return img, {
+            'labels': torch.tensor(labels, dtype=torch.long),
+            'boxes': torch.tensor(boxes, dtype=torch.float32)
+        }
 
 
 def coco_detr_collate_fn(batch: list) -> Tuple[torch.Tensor, torch.Tensor, list]:

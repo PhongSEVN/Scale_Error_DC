@@ -30,6 +30,12 @@ DIM_FEEDFORWARD = 256
 NUM_QUERIES = 50
 DROPOUT = 0.1
 
+# Augmentation Probabilities
+MIXUP_PROB = 0.1
+CUTMIX_PROB = 0.1
+FMIX_PROB = 0.1
+COPY_PASTE_PROB = 0.2
+
 # =============================================================================
 # Training Configuration
 # =============================================================================
