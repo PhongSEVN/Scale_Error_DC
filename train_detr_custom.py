@@ -104,7 +104,10 @@ def main():
     os.makedirs(cfg.CHECKPOINT_DIR, exist_ok=True)
     best_val_loss = float('inf')
     
-    print(f"Starting training on {cfg.NUM_CLASSES} classes...")
+    # Mixed Precision Scaler for faster training and less VRAM
+    scaler = torch.cuda.amp.GradScaler()
+    
+    print(f"Starting training on {cfg.NUM_CLASSES} classes (Nano-Mode / AMP)...")
     for epoch in range(1, cfg.EPOCHS + 1):
         model.train()
         criterion.train()
@@ -117,24 +120,29 @@ def main():
             masks = masks.to(device)
             targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
             
-            outputs = model(images, mask=masks)
-            loss_dict = criterion(outputs, targets)
-            loss = loss_dict['loss_total']
-            
             optimizer.zero_grad()
-            loss.backward()
+            
+            # Use autocast for mixed precision
+            with torch.cuda.amp.autocast():
+                outputs = model(images, mask=masks)
+                loss_dict = criterion(outputs, targets)
+                loss = loss_dict['loss_total']
+            
+            # Scaled backward pass
+            scaler.scale(loss).backward()
             
             if cfg.CLIP_MAX_NORM > 0:
+                scaler.unscale_(optimizer)
                 torch.nn.utils.clip_grad_norm_(model.parameters(), cfg.CLIP_MAX_NORM)
                 
-            optimizer.step()
+            scaler.step(optimizer)
+            scaler.update()
             
             train_loss += loss.item()
             pbar.set_postfix({
                 'loss': f"{loss.item():.4f}",
                 'ce': f"{loss_dict['loss_ce'].item():.4f}",
-                'l1': f"{loss_dict['loss_bbox'].item():.4f}",
-                'giou': f"{loss_dict['loss_giou'].item():.4f}"
+                'l1': f"{loss_dict['loss_bbox'].item():.4f}"
             })
             
         avg_train_loss = train_loss / len(train_loader)

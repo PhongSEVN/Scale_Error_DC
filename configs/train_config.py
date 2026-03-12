@@ -23,11 +23,11 @@ NUM_CLASSES = len(CLASS_NAMES)
 # =============================================================================
 BACKBONE_NAME = "resnet18"
 HIDDEN_DIM = 64
-NHEAD = 8
+NHEAD = 4
 NUM_ENCODER_LAYERS = 2
 NUM_DECODER_LAYERS = 2
-DIM_FEEDFORWARD = 256
-NUM_QUERIES = 50
+DIM_FEEDFORWARD = 128
+NUM_QUERIES = 25
 DROPOUT = 0.1
 
 # Augmentation Probabilities
@@ -40,9 +40,9 @@ COPY_PASTE_PROB = 0.2
 # Training Configuration
 # =============================================================================
 IMAGE_SIZE = 640
-BATCH_SIZE = 1
+BATCH_SIZE = 8
 NUM_WORKERS = 2
-EPOCHS = 50
+EPOCHS = 100
 
 # Learning Rates
 LR_TRANSFORMER = 1e-4
