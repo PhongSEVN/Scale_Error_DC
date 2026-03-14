@@ -3,5 +3,5 @@ data
 .vscode
 __pycache__/
 .venv
-/checkpoints/*
+#/checkpoints/*
 /data
